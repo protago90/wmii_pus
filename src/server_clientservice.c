@@ -2,25 +2,21 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
+#include <pthread.h>
 
 #include "server.h"
 #include "server_lib.h"
 #include "server_clientservice.h"
 #include "server_sqlite.h"
 
-void *clientservice(void *raw_arg) {
-    nclients++;
+void *subclientservice(void *raw_arg) {
     struct clientservicearg *arg = (struct clientservicearg *) raw_arg;
-    LOG("connection(%d) from %d.%d.%d.%d established", arg->index, arg->ip[0], arg->ip[1], arg->ip[2], arg->ip[3]);
-
-    // client service
-
-    FILE *in = fdopen(arg->csock, "r");
     FILE *out = fdopen(arg->csock, "w");
     setbuf(out, NULL);
     fprintf(out, "/connection ok\n");
 
     for(;;) {
+        sleep(1);
         if(arg->login_id) {
             int msg_id;
             while(msg_id = getMessage(arg->login_id)) {
@@ -32,7 +28,23 @@ void *clientservice(void *raw_arg) {
                 markMessage(msg_id);
             }
         }
+    }
+}
 
+void *clientservice(void *raw_arg) {
+    nclients++;
+    struct clientservicearg *arg = (struct clientservicearg *) raw_arg;
+    LOG("connection(%d) from %d.%d.%d.%d established", arg->index, arg->ip[0], arg->ip[1], arg->ip[2], arg->ip[3]);
+
+    // client service
+    FILE *in = fdopen(arg->csock, "r");
+    FILE *out = fdopen(arg->csock, "w");
+    setbuf(out, NULL);
+
+    pthread_t tidread;
+    pthread_create(&tidread, NULL, subclientservice, raw_arg);
+
+    for(;;) {
         char input[MAXINPUT];
         if(!fgets(input, MAXINPUT, in)) break;
 
@@ -40,7 +52,6 @@ void *clientservice(void *raw_arg) {
         if(input[0] == '\n') continue;
         if(input[n - 1] == '\n') input[n - 1] = 0;
 
-        // command detection
         if(n > 0 && input[0] == '/') {
             char cmd[MAXINPUT] = "", arg1[MAXINPUT] = "", arg2[MAXINPUT] = "", arg3[MAXINPUT] = "";
             int nw = sscanf(input, "%s %s %s %s", cmd, arg1, arg2, arg3);
@@ -100,7 +111,6 @@ void *clientservice(void *raw_arg) {
             }
 
         } else {
-            // data
             if(!arg->login_id) {
                 fprintf(out, "/error not-logged-in\n");
                 continue;
@@ -113,8 +123,6 @@ void *clientservice(void *raw_arg) {
             fprintf(out, "/sent %d\n", n);
         }
     }
-
-    // end of client service
 
     close(arg->csock);
     LOG("connection(%d) from %d.%d.%d.%d closed", arg->index, arg->ip[0], arg->ip[1], arg->ip[2], arg->ip[3]);
