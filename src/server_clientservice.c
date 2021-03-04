@@ -21,11 +21,25 @@ void *clientservice(void *raw_arg) {
     fprintf(out, "/connection ok\n");
 
     for(;;) {
+        if(arg->login_id) {
+            int msg_id;
+            while(msg_id = getMessage(arg->login_id)) {
+                char buf_t[40];
+                char buf_from[20];
+                char buf_msg[MAXINPUT];
+                readMessageAndMeta(msg_id, buf_msg, buf_t, buf_from);
+                fprintf(out, "/data %s %s\n%s\n", buf_t, buf_from, buf_msg);
+                markMessage(msg_id);
+            }
+        }
+
         char input[MAXINPUT];
         if(!fgets(input, MAXINPUT, in)) break;
 
         int n = strlen(input);
+        if(input[0] == '\n') continue;
         if(input[n - 1] == '\n') input[n - 1] = 0;
+
         // command detection
         if(n > 0 && input[0] == '/') {
             char cmd[MAXINPUT] = "", arg1[MAXINPUT] = "", arg2[MAXINPUT] = "", arg3[MAXINPUT] = "";
@@ -46,6 +60,10 @@ void *clientservice(void *raw_arg) {
                     } else {
                         fprintf(out, "/login as %s\n", arg->login);
                     }
+                } else if(!strcmp(cmd + 1, "time")) {
+                    char buf[40];
+                    now(buf, sizeof(buf));
+                    fprintf(out, "/time %s\n", buf);
                 } else if(!strcmp(cmd + 1, "logout")) {
                     arg->login_id = 0;
                     arg->login[0] = 0;
@@ -80,6 +98,7 @@ void *clientservice(void *raw_arg) {
                     fprintf(out, "/error cmd %s\n", cmd);
                 }
             }
+
         } else {
             // data
             if(!arg->login_id) {
@@ -91,17 +110,6 @@ void *clientservice(void *raw_arg) {
                 continue;
             }
             storeMessage(arg->login_id, arg->sendto_id, input);
-            int n = 0;
-            for(int i = 0; i < MAXCLIENTS; i++) {
-                if(clients[i] && clients[i]->login[0] && !strcmp(arg->sendto, clients[i]->login)) {
-                    char buf[40];                   
-                    now(buf, sizeof(buf));
-                    FILE *routed = fdopen(clients[i]->csock, "w");
-                    setbuf(routed, NULL);
-                    fprintf(routed, "/data %s %s\n%s\n", buf, arg->login, input);
-                    n++;
-                }
-            }
             fprintf(out, "/sent %d\n", n);
         }
     }
