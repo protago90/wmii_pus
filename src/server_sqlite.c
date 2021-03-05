@@ -10,38 +10,27 @@
 
 static sqlite3 *db;
 
-void dbconnect()
-{
-
+void dbconnect() {
     sqlite3_stmt *stmt;
-
     LOG("sqlite version %s", sqlite3_libversion());
 
-    if (sqlite3_open(DBFILE, &db) != SQLITE_OK)
-    {
+    if (sqlite3_open(DBFILE, &db) != SQLITE_OK) {
         LOG("Connection to database %s failed: %s", DBFILE, sqlite3_errmsg(db));
         exit(1);
     }
-
     LOG("Connection to database %s established", DBFILE);
 
     sqlite3_prepare_v2(db, "SELECT COUNT(*) FROM users WHERE id > ?", -1, &stmt, NULL);
     sqlite3_bind_int(stmt, 1, 0); // first question mark will be 0
-    int step = sqlite3_step(stmt);
-    if (step == SQLITE_ROW)
-    {
-        LOG("Number of users: %d", sqlite3_column_int(stmt, 0));
-    }
+    if (sqlite3_step(stmt) == SQLITE_ROW) LOG("Number of users: %d", sqlite3_column_int(stmt, 0));
 }
 
-void dbclose()
-{
+void dbclose() {
     sqlite3_close(db);
     LOG("Connection to database %s closed", DBFILE);
 }
 
-int checkUser(const char *login, const char *password)
-{
+int checkUser(const char *login, const char *password) {
     sqlite3_stmt *stmt;
     sqlite3_prepare_v2(db, "SELECT id FROM users WHERE login = ? AND password = ?", -1, &stmt, NULL);
     sqlite3_bind_text(stmt, 1, login, strlen(login), NULL);
@@ -49,63 +38,65 @@ int checkUser(const char *login, const char *password)
     return sqlite3_step(stmt) != SQLITE_ROW ? 0 : sqlite3_column_int(stmt, 0);
 }
 
-int getUser(const char *login)
-{
+int getUser(const char *login) {
     sqlite3_stmt *stmt;
     sqlite3_prepare_v2(db, "SELECT id FROM users WHERE login = ?", -1, &stmt, NULL);
     sqlite3_bind_text(stmt, 1, login, strlen(login), NULL);
     return sqlite3_step(stmt) != SQLITE_ROW ? 0 : sqlite3_column_int(stmt, 0);
 }
 
-void readLogin(int id, char *login)
-{
+void readLogin(int id, char *login) {
     sqlite3_stmt *stmt;
     sqlite3_prepare_v2(db, "SELECT login FROM users WHERE id = ?", -1, &stmt, NULL);
     sqlite3_bind_int(stmt, 1, id);
-    if(sqlite3_step(stmt) == SQLITE_ROW) strcpy(login, (char *)sqlite3_column_text(stmt, 0));
+    if (sqlite3_step(stmt) == SQLITE_ROW) strcpy(login, (char *)sqlite3_column_text(stmt, 0));
 }
 
-void storeMessage(int from, int to, const char *message)
-{
+void storeMessage(int from, int to, const char *message, const char *host) {
     time_t date = time(0);
     sqlite3_stmt *stmt;
-    sqlite3_prepare_v2(db, "INSERT INTO messages (date, sender, recipient, data, status) VALUES (?, ?, ?, ?, ?)", -1, &stmt, NULL);
-    sqlite3_bind_int(stmt, 1, date);
-    sqlite3_bind_int(stmt, 2, from);
-    sqlite3_bind_int(stmt, 3, to);
-    sqlite3_bind_text(stmt, 4, message, strlen(message), NULL);
-    sqlite3_bind_int(stmt, 5, 0);
+    sqlite3_prepare_v2(db, "INSERT INTO messages (host, date, sender, recipient, data, status) VALUES (?, ?, ?, ?, ?, ?)", -1, &stmt, NULL);
+    sqlite3_bind_text(stmt, 1, host, strlen(host), NULL);
+    sqlite3_bind_int(stmt, 2, date);
+    sqlite3_bind_int(stmt, 3, from);
+    sqlite3_bind_int(stmt, 4, to);
+    sqlite3_bind_text(stmt, 5, message, strlen(message), NULL);
+    sqlite3_bind_int(stmt, 6, 0);
     sqlite3_step(stmt);
 }
 
-int getMessage(int to)
-{
+int getMessage(int to) {
     sqlite3_stmt *stmt;
     sqlite3_prepare_v2(db, "SELECT id FROM messages WHERE recipient = ? AND status = 0 ORDER BY date limit 1", -1, &stmt, NULL);
     sqlite3_bind_int(stmt, 1, to);
     return sqlite3_step(stmt) != SQLITE_ROW ? 0 : sqlite3_column_int(stmt, 0);
 }
 
-void readMessageAndMeta(int id, char *message, char *date, char *sender)
-{
+void readMessageAndMeta(int id, char *message, char *date, char *sender) {
     sqlite3_stmt *stmt;
     sqlite3_prepare_v2(db, "SELECT data, date, sender FROM messages WHERE id = ?", -1, &stmt, NULL);
     sqlite3_bind_int(stmt, 1, id);
-    if(sqlite3_step(stmt) == SQLITE_ROW) {
+    if (sqlite3_step(stmt) == SQLITE_ROW) {
         strcpy(message, (char *)sqlite3_column_text(stmt, 0));
         time_t t = sqlite3_column_int(stmt, 1);
         strftime(date, 40, "%Y-%m-%d %H:%M:%S", localtime(&t));
-        // time_t now = time(0);
-        // strftime(date, 40, "%Y-%m-%d %H:%M:%S", localtime(&now));
         int id = sqlite3_column_int(stmt, 2);
         readLogin(id, sender);
     }
 }
 
-void markMessage(int id)
-{
+void markMessage(int id) {
     sqlite3_stmt *stmt;
     sqlite3_prepare_v2(db, "UPDATE messages SET status = 1 WHERE id = ?", -1, &stmt, NULL);
     sqlite3_bind_int(stmt, 1, id);
     sqlite3_step(stmt);
+}
+
+void readMessageAndMeta2(int id, char *sqlrow) {
+    sqlite3_stmt *stmt;
+    sqlite3_prepare_v2(db, "SELECT data, date, sender FROM messages WHERE id = ?", -1, &stmt, NULL);
+    sqlite3_bind_int(stmt, 1, id);
+    if (sqlite3_step(stmt) == SQLITE_ROW) {
+        strcpy(sqlrow, (char *)sqlite3_column_blob(stmt, 0));
+    }
 }

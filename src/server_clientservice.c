@@ -13,7 +13,6 @@ void *subclientservice(void *raw_arg) {
     struct clientservicearg *arg = (struct clientservicearg *) raw_arg;
     FILE *out = fdopen(arg->csock, "w");
     setbuf(out, NULL);
-    fprintf(out, "/connection ok\n");
 
     for(;;) {
         sleep(1);
@@ -25,7 +24,6 @@ void *subclientservice(void *raw_arg) {
                 char buf_msg[MAXINPUT];
                 readMessageAndMeta(msg_id, buf_msg, buf_t, buf_from);
                 fprintf(out, "/data %s %s\n%s\n", buf_t, buf_from, buf_msg);
-                markMessage(msg_id);
             }
         }
     }
@@ -44,6 +42,10 @@ void *clientservice(void *raw_arg) {
     pthread_t tidread;
     pthread_create(&tidread, NULL, subclientservice, raw_arg);
 
+    char hostname[64];
+    HOST(hostname);
+    fprintf(out, "/connected with server %s\n", hostname);
+    
     for(;;) {
         char input[MAXINPUT];
         if(!fgets(input, MAXINPUT, in)) break;
@@ -73,7 +75,7 @@ void *clientservice(void *raw_arg) {
                     }
                 } else if(!strcmp(cmd + 1, "time")) {
                     char buf[40];
-                    now(buf, sizeof(buf));
+                    NOW(buf, sizeof(buf));
                     fprintf(out, "/time %s\n", buf);
                 } else if(!strcmp(cmd + 1, "logout")) {
                     arg->login_id = 0;
@@ -119,7 +121,7 @@ void *clientservice(void *raw_arg) {
                 fprintf(out, "/error sendto-not-set\n");
                 continue;
             }
-            storeMessage(arg->login_id, arg->sendto_id, input);
+            storeMessage(arg->login_id, arg->sendto_id, input, hostname);
             fprintf(out, "/sent %d\n", n);
         }
     }

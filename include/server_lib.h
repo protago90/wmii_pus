@@ -3,7 +3,9 @@
 
 #include <stdio.h>
 
-void now(char *, size_t);
+void HOST(char *); 
+
+void NOW(char *, size_t);
 
 extern FILE *_log;
 void LOG(char *, ...);
