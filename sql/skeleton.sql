@@ -5,4 +5,4 @@ insert into users (login,password) values ('mars','mars');
 insert into users (login,password) values ('jupyter','jupyter');
 
 drop table if exists messages;
-create table messages (id integer primary key autoincrement, host text, date integer, sender integer, recipient integer, data text, status integer);
+create table messages (id integer primary key autoincrement, host text, date integer, sender integer, recipient integer, data text, status integer, migration text);

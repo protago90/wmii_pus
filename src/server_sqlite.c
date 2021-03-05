@@ -53,15 +53,17 @@ void readLogin(int id, char *login) {
 }
 
 void storeMessage(int from, int to, const char *message, const char *host) {
-    time_t date = time(0);
+    int date = time(0);
+    char migration[MAXINPUT];
+    snprintf(migration, sizeof(migration), "%s;%d;%d;%d;%s", host, date, from, to, message);
     sqlite3_stmt *stmt;
-    sqlite3_prepare_v2(db, "INSERT INTO messages (host, date, sender, recipient, data, status) VALUES (?, ?, ?, ?, ?, ?)", -1, &stmt, NULL);
+    sqlite3_prepare_v2(db, "INSERT INTO messages (host, date, sender, recipient, data, status, migration) VALUES (?, ?, ?, ?, ?, 0, ?)", -1, &stmt, NULL);
     sqlite3_bind_text(stmt, 1, host, strlen(host), NULL);
     sqlite3_bind_int(stmt, 2, date);
     sqlite3_bind_int(stmt, 3, from);
     sqlite3_bind_int(stmt, 4, to);
     sqlite3_bind_text(stmt, 5, message, strlen(message), NULL);
-    sqlite3_bind_int(stmt, 6, 0);
+    sqlite3_bind_text(stmt, 6, migration, strlen(migration), NULL);
     sqlite3_step(stmt);
 }
 
@@ -92,11 +94,8 @@ void markMessage(int id) {
     sqlite3_step(stmt);
 }
 
-void readMessageAndMeta2(int id, char *sqlrow) {
-    sqlite3_stmt *stmt;
-    sqlite3_prepare_v2(db, "SELECT data, date, sender FROM messages WHERE id = ?", -1, &stmt, NULL);
-    sqlite3_bind_int(stmt, 1, id);
-    if (sqlite3_step(stmt) == SQLITE_ROW) {
-        strcpy(sqlrow, (char *)sqlite3_column_blob(stmt, 0));
-    }
-}
+// void migrateMessage(char *formula) {
+//     sqlite3_stmt *stmt;
+//     sqlite3_prepare_v2(db, formula, -1, &stmt, NULL);
+//     sqlite3_step(stmt);
+// }

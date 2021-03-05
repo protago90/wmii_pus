@@ -19,11 +19,21 @@ void *subclientservice(void *raw_arg) {
         if(arg->login_id) {
             int msg_id;
             while(msg_id = getMessage(arg->login_id)) {
-                char buf_t[40];
+                char buf_date[40];
                 char buf_from[20];
                 char buf_msg[MAXINPUT];
-                readMessageAndMeta(msg_id, buf_msg, buf_t, buf_from);
-                fprintf(out, "/data %s %s\n%s\n", buf_t, buf_from, buf_msg);
+                // char buf_formula[MAXINPUT];
+                readMessageAndMeta(msg_id, buf_msg, buf_date, buf_from); //buf_formula
+                fprintf(out, "/data %s %s\n%s\n", buf_date, buf_from, buf_msg);
+                // fprintf(out, "/data >%s<\n", buf_formula); 
+                // char msg_host[64]; 
+                // char msg_data[MAXINPUT];
+                // int msg_date; 
+                // int msg_from; 
+                // int msg_to; 
+                // int nw = sscanf(buf_formula, "%[^;];%d;%d;%d;%s", msg_host, &msg_date, &msg_from, &msg_to, msg_data);
+                // storeMessage(msg_from, msg_to, msg_data, msg_host);
+                markMessage(msg_id);
             }
         }
     }
