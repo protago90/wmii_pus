@@ -1,9 +1,15 @@
 include settings.local
 
-deploy: dist/server dist/serverctl
+deploy1: dist/server dist/serverctl
 	ssh ${HOST1} "killall server; killall serverctl" || true
 	scp $^ ${HOST1}:
 	ssh ${HOST1} "./server"
+
+deploy2: dist/server dist/serverctl
+	ssh ${HOST2} "killall server; killall serverctl" || true
+	scp $^ ${HOST2}:
+	ssh ${HOST2} "./server"
+	# ssh ${HOST2} "echo 'ping' | nc -u ${HOST1} 9999"
 
 dist/server: src/server.c src/server_lib.c src/server_clientservice.c src/server_sqlite.c
 		gcc -g $^ -o $@ -lpthread -lsqlite3 -I./include
@@ -23,5 +29,8 @@ testnc:
 testjava:
 		cd javaclient && java -jar dist/client.jar &
 
-createdb:
+createdb1:
 	ssh ${HOST1} "sqlite3 server.db" < sql/skeleton.sql
+
+createdb2:
+	ssh ${HOST2} "sqlite3 server.db" < sql/skeleton.sql

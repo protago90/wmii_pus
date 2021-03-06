@@ -27,7 +27,7 @@ void clean(int sig) {
 int nclients = 0;
 struct clientservicearg *clients[MAXCLIENTS]; // NULL means "no client"
 
-void *netserver(void *arg) {
+void *tcpserver(void *arg) {
     int sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP), opt = 1;
     setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
     struct sockaddr_in addr;
@@ -35,7 +35,7 @@ void *netserver(void *arg) {
     addr.sin_family = AF_INET;
     addr.sin_port = htons(PORT);
     if(bind(sock, (struct sockaddr *) &addr, sizeof(addr))) {
-        LOG("bind to port %d failed", PORT);
+        LOG("bind to port %d/tcp failed", PORT);
         exit(2);
     }
     listen(sock, 5);
@@ -69,6 +69,65 @@ void *netserver(void *arg) {
     }
 }
 
+void *udpserver(void *arg) {
+    int sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+    struct sockaddr_in addr;
+    memset(&addr, 0, sizeof(addr));
+    addr.sin_family = AF_INET;
+    addr.sin_port = htons(PORT);
+    if(bind(sock, (struct sockaddr *) &addr, sizeof(addr))) {
+        LOG("bind to port %d/udp-server failed", PORT);
+        exit(2);
+    }
+    for(;;) {
+        struct sockaddr_in clientaddr;
+        unsigned int sockaddr_size = sizeof(clientaddr);
+        
+        char ingram[DGRAMMAX];
+        // char ingram_fb[DGRAMMAX];
+        int n = recvfrom(sock, ingram, sizeof(ingram), 0, (struct sockaddr *) &clientaddr, &sockaddr_size);
+        if (n > 0) {
+            unsigned char *ip = (unsigned char *) &clientaddr.sin_addr;
+            if(ingram[n - 1] == '\n') ingram[n - 1] = 0;
+            char incmd[MAXINPUT];
+            char msg_host[64]; 
+            char msg_data[MAXINPUT];
+            int msg_date; 
+            int msg_from; 
+            int msg_to;
+            int nw = sscanf(ingram, "%s %d;%[^;];%d;%d;%[^;]", incmd, &msg_date, msg_host, &msg_from, &msg_to, msg_data);
+            if(!strcmp(incmd, "migration")) {
+                if (nw == 6){
+                    LOG("udp %d-bytes datagram received from %d.%d.%d.%d", n, ip[0], ip[1], ip[2], ip[3]);
+                    storeMessageAndMeta(msg_from, msg_to, msg_date, msg_data, msg_host);
+                    // snprintf(ingram_fb, sizeof(ingram_fb), "migrationdone %d\n", msg_date);
+                    // sendto(sock, ingram_fb, sizeof(ingram_fb), 0, (const struct sockaddr *) &clientaddr, sockaddr_size);
+                    // LOG("udp migrationdone %d\n", msg_date);
+                    // sendto(sock, msg_date, sizeof(msg_date), 0, (const struct sockaddr *) &clientaddr, sockaddr_size);
+                }
+            // } else if (!strcmp(incmd, "migrationdone")){
+            //      markMessage(msg_date);
+            }
+        }
+
+        char outdgram[DGRAMMAX];
+        int msg_id; 
+        while(msg_id = getMigration()) {
+            char msg_migration[MAXINPUT];
+            unsigned char *ip = (unsigned char *) &clientaddr.sin_addr;
+            readMigration(msg_id, msg_migration);
+            snprintf(outdgram, sizeof(outdgram), "migration %s", msg_migration);
+            sendto(sock, outdgram, sizeof(outdgram), 0, (const struct sockaddr *) &clientaddr, sockaddr_size);
+            sendto(sock, "pst", 3, 0, (const struct sockaddr *) &clientaddr, sockaddr_size);
+            LOG("udp datagram send %s %d.%d.%d.%d", msg_migration, ip[0], ip[1], ip[2], ip[3]);
+            markMigration(msg_id);
+        }
+
+        sleep(1);
+        sendto(sock, "ping", 4, 0, (const struct sockaddr *) &clientaddr, sockaddr_size);
+    }
+}
+
 int main() {
     _log = fopen(LOGFNAME, "a");
     if(!_log) {
@@ -78,8 +137,10 @@ int main() {
         daemon(1, 0); // no chdir
     dbconnect();
     LOG("server started, pid=%d", getpid());
+
     pthread_t nstid;
-    pthread_create(&nstid, NULL, netserver, NULL);
+    pthread_create(&nstid, NULL, tcpserver, NULL);
+    pthread_create(&nstid, NULL, udpserver, NULL);
     signal(SIGINT, clean);
     signal(SIGTERM, clean);
     signal(SIGQUIT, clean);

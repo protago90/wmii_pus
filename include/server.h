@@ -10,6 +10,7 @@
 #define FNAMEMAX 80
 #define CMDMAX 256
 #define PORT 9999
+#define DGRAMMAX 65536
 
 extern struct clientservicearg *clients[MAXCLIENTS];
 

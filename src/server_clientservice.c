@@ -22,17 +22,8 @@ void *subclientservice(void *raw_arg) {
                 char buf_date[40];
                 char buf_from[20];
                 char buf_msg[MAXINPUT];
-                // char buf_formula[MAXINPUT];
-                readMessageAndMeta(msg_id, buf_msg, buf_date, buf_from); //buf_formula
+                readMessageAndMeta(msg_id, buf_msg, buf_date, buf_from);
                 fprintf(out, "/data %s %s\n%s\n", buf_date, buf_from, buf_msg);
-                // fprintf(out, "/data >%s<\n", buf_formula); 
-                // char msg_host[64]; 
-                // char msg_data[MAXINPUT];
-                // int msg_date; 
-                // int msg_from; 
-                // int msg_to; 
-                // int nw = sscanf(buf_formula, "%[^;];%d;%d;%d;%s", msg_host, &msg_date, &msg_from, &msg_to, msg_data);
-                // storeMessage(msg_from, msg_to, msg_data, msg_host);
                 markMessage(msg_id);
             }
         }
@@ -131,7 +122,7 @@ void *clientservice(void *raw_arg) {
                 fprintf(out, "/error sendto-not-set\n");
                 continue;
             }
-            storeMessage(arg->login_id, arg->sendto_id, input, hostname);
+            storeMessageAndMeta(arg->login_id, arg->sendto_id, 0, input, hostname);
             fprintf(out, "/sent %d\n", n);
         }
     }
